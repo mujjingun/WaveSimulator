@@ -6,11 +6,15 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/CMakeModules)
 
 # Find SDL2
 find_package(SDL2 REQUIRED)
+# Find OpenGL
+find_package(OpenGL REQUIRED)
+# Find GLEW
+find_package(GLEW REQUIRED)
 
 # Add global definitions
-add_definitions("-Wall")
-include_directories(${SDL2_INCLUDE_DIR})
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall -O2")
+include_directories(${SDL2_INCLUDE_DIR} ${OPENGL_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS})
 
-add_executable(wavesimulator main.c)
+add_executable(wavesimulator main.cpp renderer.cpp)
 install(TARGETS wavesimulator DESTINATION bin)
-target_link_libraries(wavesimulator ${SDL2_LIBRARIES})
+target_link_libraries(wavesimulator ${SDL2_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
