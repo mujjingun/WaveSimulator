@@ -25,17 +25,19 @@ Renderer::Renderer(const int screen_width, const int screen_height) {
 
     osc_vao = VertexArrayObject<3>({
         { -.7, 0, 1 },
-        //{ .1, 0, 1 },
+        //{  .1, 0, 1 },
     });
 
     constexpr GLfloat l = -.305, r = -.3;
     constexpr GLfloat b = -1, t = 1;
-    constexpr GLfloat b1 = -.15, t1 = -.1, b2 = .1, t2 = .15;
+    constexpr GLfloat b1 = -.2, t1 = -.15, b2 = .15, t2 = .2;
+    constexpr GLfloat th = .2;
     wall_vao = VertexArrayObject<3>({
+        // Double slit
         { l, b1, 2 },
-        { l, b, 2 },
-        { r, b, 2 },
-        { r, b, 2 },
+        { l, b,  2 },
+        { r, b,  2 },
+        { r, b,  2 },
         { r, b1, 2 },
         { l, b1, 2 },
 
@@ -46,13 +48,44 @@ Renderer::Renderer(const int screen_width, const int screen_height) {
         { r, b2, 2 },
         { l, b2, 2 },
 
-        { l, t, 2 },
+        { l, t,  2 },
         { l, t2, 2 },
         { r, t2, 2 },
         { r, t2, 2 },
-        { r, t, 2 },
-        { l, t, 2 },
+        { r, t,  2 },
+        { l, t,  2 },
+
+        // Surrounding walls
+        { -1, -1,   3 },
+        {  1, -1,   3 },
+        { -1, -1 + th, 3 },
+        { -1, -1 + th, 3 },
+        {  1, -1,   3 },
+        {  1, -1 + th, 3 },
+
+        { -1,   1, 3 },
+        {  1,   1, 3 },
+        { -1, 1 - th, 3 },
+        { -1, 1 - th, 3 },
+        {  1,   1, 3 },
+        {  1, 1 - th, 3 },
+
+        {   -1, -1 + th, 3 },
+        {   -1,  1 - th, 3 },
+        { -1 + th, -1 + th, 3 },
+        { -1 + th, -1 + th, 3 },
+        {   -1,  1 - th, 3 },
+        { -1 + th,  1 - th, 3 },
+
+        {   1, -1 + th, 3 },
+        {   1,  1 - th, 3 },
+        { 1 - th, -1 + th, 3 },
+        { 1 - th, -1 + th, 3 },
+        {   1,  1 - th, 3 },
+        { 1 - th,  1 - th, 3 },
     });
+
+    drop_vao = VertexArrayObject<3>(6);
 
     // Create head pointer texture
     glActiveTexture(GL_TEXTURE0);
@@ -88,13 +121,29 @@ Renderer::Renderer(const int screen_width, const int screen_height) {
         { GL_VERTEX_SHADER, "pass.vert" },
         { GL_FRAGMENT_SHADER, "pass.frag" }
     });
-    time_uni = glGetUniformLocation(pass_program.id(), "time");
-    omega_uni = glGetUniformLocation(pass_program.id(), "omega");
+
+    dt_uni = glGetUniformLocation(pass_program.id(), "dt");
+
+    pass2_program = load_shader({
+        { GL_VERTEX_SHADER, "pass.vert" },
+        { GL_FRAGMENT_SHADER, "pass2.frag" }
+    });
+
+    time_uni = glGetUniformLocation(pass2_program.id(), "time");
+    omega_uni = glGetUniformLocation(pass2_program.id(), "omega");
+    dt2_uni = glGetUniformLocation(pass2_program.id(), "dt");
 }
+
+constexpr double DELTA = 0.0001;
+constexpr double period = 0.01, pi2 = 6.283185307;
+constexpr double omega = pi2 / period;
 
 void Renderer::render() noexcept {
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
+    glBlendEquation(GL_FUNC_ADD);
+    glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
 
     static const float black[] = { 0.0, 0.0, 0.0, 0.0 };
     glClearBufferfv(GL_COLOR, 0, black);
@@ -105,37 +154,38 @@ void Renderer::render() noexcept {
 
     // Bind input & output image for read-write
     glBindImageTexture(0, input_tex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
-    glBindImageTexture(1, output_tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(1, output_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
     // Shader Pass
     glUseProgram(pass_program.id());
-    glUniform1f(time_uni, time);
-    constexpr double period = 0.01, pi2 = 6.283185307;
-    constexpr double omega = pi2 / period;
-    glUniform1f(omega_uni, omega);
-
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
+    glUniform1f(dt_uni, DELTA);
     triangle_vao.draw(GL_TRIANGLE_STRIP);
+
+    glFlush();
+    glUseProgram(pass2_program.id());
+    glUniform1f(time_uni, time);
+    glUniform1f(omega_uni, omega);
+    glUniform1f(dt2_uni, DELTA);
+
     osc_vao.draw(GL_POINTS);
     wall_vao.draw(GL_TRIANGLES);
+    drop_vao.draw(GL_POINTS);
+    if (drop_vao.size()) drop_vao.pop_back();
 
     // Render to Screen
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-
     glBindImageTexture(0, output_tex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 
     glUseProgram(render_program.id());
     triangle_vao.draw(GL_TRIANGLE_STRIP);
     wall_vao.draw(GL_TRIANGLES);
 
-    time += 0.0001;
+    time += DELTA;
 }
 
 void Renderer::mouse_click(SDL_MouseButtonEvent const& e) noexcept {
     if (e.button == SDL_BUTTON_LEFT) {
-        printf("%d %d\n", e.x, e.y);
-        fflush(stdout);
-        // TODO: implement raindrops
+        GLfloat x = GLfloat(e.x) / scrwidth * 2 - 1;
+        GLfloat y = GLfloat(e.y) / scrheight * 2 - 1;
+        drop_vao.push_back({x, y, 4});
     }
 }

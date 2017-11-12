@@ -8,7 +8,7 @@
 class Renderer {
 
     // Vertex Array Objects
-    VertexArrayObject<3> triangle_vao, osc_vao, wall_vao;
+    VertexArrayObject<3> triangle_vao, osc_vao, wall_vao, drop_vao;
 
     // Buffers
     GLuint clear_buf;
@@ -17,10 +17,10 @@ class Renderer {
     GLuint wave_tex[2];
 
     // Shader programs
-    Program pass_program, render_program;
+    Program pass_program, pass2_program, render_program;
 
     // Uniform locations
-    GLuint time_uni, omega_uni;
+    GLuint time_uni, omega_uni, dt_uni, dt2_uni;
 
     // Screen dimensions
     int scrwidth, scrheight;

@@ -12,7 +12,10 @@ float pick(float x, float v) {
 
 void main() {
     float col = imageLoad(output_img, ivec2(gl_FragCoord.xy)).r;
-    col = tanh(col * 8) / 2 + .5;
-    color = vec4(col) * pick(type, 0) +
-            vec4(0.7, 1, 0.7, 0) * pick(type, 2);
+    col = tanh(col * 10) / 2 + .5;
+    //col = col / 2 + .5;
+    color = vec4(vec3(col), 1) * pick(type, 0)
+        + vec4(0.7, 1, 0.7, 1) * pick(type, 2)
+        + vec4(0.7, 0.7, 1, 0.1) * pick(type, 3)
+        + vec4(1, 0, 0, 1) * pick(type, 4);
 }
