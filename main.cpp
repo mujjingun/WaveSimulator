@@ -36,8 +36,8 @@ int main(int argc, char ** argv) {
             int this_ms = SDL_GetTicks();
             int delta = this_ms - last_ms;
             if (delta >= 1000) {
-                double fps = double(framecount) / delta * 1000;
-                printf("%.2lf Hz, %.0lfx slowdown\n", fps, 10000 / fps);
+                double fps = double(framecount) / (delta / 1000.);
+                printf("%.2lf Hz, %.0lfx slowdown\n", fps, 1 / fps / renderer.DELTA);
                 fflush(stdout);
                 last_ms = this_ms;
                 framecount = 0;

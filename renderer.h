@@ -8,7 +8,7 @@
 class Renderer {
 
     // Vertex Array Objects
-    VertexArrayObject<3> triangle_vao, osc_vao, wall_vao, drop_vao;
+    VertexArrayObject<3> quad_vao, osc_vao, wall_vao, bounds_vao, drop_vao;
 
     // Buffers
     GLuint clear_buf;
@@ -17,10 +17,10 @@ class Renderer {
     GLuint wave_tex[2];
 
     // Shader programs
-    Program pass_program, pass2_program, render_program;
+    Program pass_program, pass2_program, pass3_program, render_program;
 
     // Uniform locations
-    GLuint time_uni, omega_uni, dt_uni, dt2_uni;
+    GLuint time_uni, omega_uni, size_uni;
 
     // Screen dimensions
     int scrwidth, scrheight;
@@ -29,6 +29,9 @@ class Renderer {
     GLfloat time = 0;
 
 public:
+
+    constexpr static double DELTA = 1. / 10000;
+
     Renderer(const int screen_width, const int screen_height);
 
     void render() noexcept;

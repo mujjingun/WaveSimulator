@@ -16,7 +16,7 @@ Renderer::Renderer(const int screen_width, const int screen_height) {
     scrheight = screen_height;
 
     // Initalize Vertex Buffers
-    triangle_vao = VertexArrayObject<3>({
+    quad_vao = VertexArrayObject<3>({
         { -1, -1, 0 },
         { 1, -1, 0 },
         { -1, 1, 0 },
@@ -28,62 +28,31 @@ Renderer::Renderer(const int screen_width, const int screen_height) {
         //{  .1, 0, 1 },
     });
 
-    constexpr GLfloat l = -.305, r = -.3;
-    constexpr GLfloat b = -1, t = 1;
-    constexpr GLfloat b1 = -.2, t1 = -.15, b2 = .15, t2 = .2;
-    constexpr GLfloat th = .2;
+#define MAKE_QUAD(x1, y1, x2, y2, c1, c2, c3, c4) \
+    {x1,y1,c1},{x2,y1,c2},{x1,y2,c4},{x1,y2,c4},{x2,y1,c2},{x2,y2,c3}
+    constexpr GLfloat l = -.205, r = -.2;
     wall_vao = VertexArrayObject<3>({
         // Double slit
-        { l, b1, 2 },
-        { l, b,  2 },
-        { r, b,  2 },
-        { r, b,  2 },
-        { r, b1, 2 },
-        { l, b1, 2 },
-
-        { l, b2, 2 },
-        { l, t1, 2 },
-        { r, t1, 2 },
-        { r, t1, 2 },
-        { r, b2, 2 },
-        { l, b2, 2 },
-
-        { l, t,  2 },
-        { l, t2, 2 },
-        { r, t2, 2 },
-        { r, t2, 2 },
-        { r, t,  2 },
-        { l, t,  2 },
-
-        // Surrounding walls
-        { -1, -1,   3 },
-        {  1, -1,   3 },
-        { -1, -1 + th, 3 },
-        { -1, -1 + th, 3 },
-        {  1, -1,   3 },
-        {  1, -1 + th, 3 },
-
-        { -1,   1, 3 },
-        {  1,   1, 3 },
-        { -1, 1 - th, 3 },
-        { -1, 1 - th, 3 },
-        {  1,   1, 3 },
-        {  1, 1 - th, 3 },
-
-        {   -1, -1 + th, 3 },
-        {   -1,  1 - th, 3 },
-        { -1 + th, -1 + th, 3 },
-        { -1 + th, -1 + th, 3 },
-        {   -1,  1 - th, 3 },
-        { -1 + th,  1 - th, 3 },
-
-        {   1, -1 + th, 3 },
-        {   1,  1 - th, 3 },
-        { 1 - th, -1 + th, 3 },
-        { 1 - th, -1 + th, 3 },
-        {   1,  1 - th, 3 },
-        { 1 - th,  1 - th, 3 },
+        MAKE_QUAD(l, -1, r, -.2, 2, 2, 2, 2),
+        MAKE_QUAD(l, -.15, r, .15, 2, 2, 2, 2),
+        MAKE_QUAD(l, .2, r, 1, 2, 2, 2, 2),
     });
+
+    constexpr GLfloat th = .15;
+    bounds_vao = VertexArrayObject<3>({
+        // Surrounding walls
+        MAKE_QUAD(-1 + th, -1, 1 - th, -1 + th, 4, 4, 3, 3),
+        MAKE_QUAD(-1 + th, 1 - th, 1 - th, 1, 3, 3, 4, 4),
+        MAKE_QUAD(-1, -1 + th, -1 + th, 1 - th, 4, 3, 3, 4),
+        MAKE_QUAD(1 - th, -1 + th, 1, 1 - th, 3, 4, 4, 3),
+
+        // Corners
+        MAKE_QUAD(-1, -1 + th, -1 + th, -1, 4, 3, 4, 4),
+        MAKE_QUAD(1 - th, -1, 1, -1 + th, 4, 4, 4, 3),
+        MAKE_QUAD(-1, 1 - th, -1 + th, 1, 4, 3, 4, 4),
+        MAKE_QUAD(1, 1 - th, 1 - th, 1, 4, 3, 4, 4),
+    });
+#undef MAKE_QUAD
 
     drop_vao = VertexArrayObject<3>(6);
 
@@ -96,50 +65,62 @@ Renderer::Renderer(const int screen_width, const int screen_height) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, scrwidth, scrheight, 0, GL_RGBA, GL_FLOAT, NULL);
     }
-    glBindTexture(GL_TEXTURE_2D, 0);
 
-    // Create Buffer for clearing the head pointer texture
+    // Create Buffer for clearing textures
     glGenBuffers(1, &clear_buf);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, clear_buf);
     glBufferData(GL_PIXEL_UNPACK_BUFFER, scrwidth * scrheight * 32, NULL, GL_STATIC_DRAW);
 
-    vec<4> *data = (vec<4> *)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+    void *data = glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
     std::memset(data, 0x00, scrwidth * scrheight * 32);
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
 
+    // Zero the images
     glBindTexture(GL_TEXTURE_2D, wave_tex[0]);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, scrwidth, scrheight, GL_RGBA, GL_FLOAT, NULL);
     glBindTexture(GL_TEXTURE_2D, 0);
 
     // Initialize Shaders
     render_program = load_shader({
-        { GL_VERTEX_SHADER, "triangles.vert" },
-        { GL_FRAGMENT_SHADER, "triangles.frag" }
+        { GL_VERTEX_SHADER, "quad.vert" },
+        { GL_FRAGMENT_SHADER, "quad.frag" }
     });
+
+    size_uni = glGetUniformLocation(render_program.id(), "size");
 
     pass_program = load_shader({
         { GL_VERTEX_SHADER, "pass.vert" },
         { GL_FRAGMENT_SHADER, "pass.frag" }
     });
 
-    dt_uni = glGetUniformLocation(pass_program.id(), "dt");
+    GLuint dt_uni = glGetUniformLocation(pass_program.id(), "dt");
+
+    glUseProgram(pass_program.id());
+    glUniform1f(dt_uni, DELTA);
 
     pass2_program = load_shader({
         { GL_VERTEX_SHADER, "pass.vert" },
         { GL_FRAGMENT_SHADER, "pass2.frag" }
     });
 
-    time_uni = glGetUniformLocation(pass2_program.id(), "time");
-    omega_uni = glGetUniformLocation(pass2_program.id(), "omega");
-    dt2_uni = glGetUniformLocation(pass2_program.id(), "dt");
+    pass3_program = load_shader({
+        { GL_VERTEX_SHADER, "pass.vert" },
+        { GL_FRAGMENT_SHADER, "pass3.frag" }
+    });
+
+    time_uni = glGetUniformLocation(pass3_program.id(), "time");
+    omega_uni = glGetUniformLocation(pass3_program.id(), "omega");
+    dt_uni = glGetUniformLocation(pass3_program.id(), "dt");
+
+    glUseProgram(pass3_program.id());
+    glUniform1f(dt_uni, DELTA);
 }
 
-constexpr double DELTA = 0.0001;
-constexpr double period = 0.01, pi2 = 6.283185307;
+constexpr double period = 0.008, pi2 = 6.283185307;
 constexpr double omega = pi2 / period;
 
 void Renderer::render() noexcept {
-    glDisable(GL_DEPTH_TEST);
+    //glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glBlendEquation(GL_FUNC_ADD);
@@ -156,17 +137,20 @@ void Renderer::render() noexcept {
     glBindImageTexture(0, input_tex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
     glBindImageTexture(1, output_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
-    // Shader Pass
+    // Pass 1
     glUseProgram(pass_program.id());
-    glUniform1f(dt_uni, DELTA);
-    triangle_vao.draw(GL_TRIANGLE_STRIP);
+    quad_vao.draw(GL_TRIANGLE_STRIP);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
-    glFlush();
+    // Pass 2
     glUseProgram(pass2_program.id());
+    bounds_vao.draw(GL_TRIANGLES);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    // Pass 3
+    glUseProgram(pass3_program.id());
     glUniform1f(time_uni, time);
     glUniform1f(omega_uni, omega);
-    glUniform1f(dt2_uni, DELTA);
-
     osc_vao.draw(GL_POINTS);
     wall_vao.draw(GL_TRIANGLES);
     drop_vao.draw(GL_POINTS);
@@ -176,8 +160,11 @@ void Renderer::render() noexcept {
     glBindImageTexture(0, output_tex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 
     glUseProgram(render_program.id());
-    triangle_vao.draw(GL_TRIANGLE_STRIP);
+    glUniform2i(size_uni, scrwidth, scrheight);
+
+    quad_vao.draw(GL_TRIANGLE_STRIP);
     wall_vao.draw(GL_TRIANGLES);
+    bounds_vao.draw(GL_TRIANGLES);
 
     time += DELTA;
 }
@@ -186,6 +173,6 @@ void Renderer::mouse_click(SDL_MouseButtonEvent const& e) noexcept {
     if (e.button == SDL_BUTTON_LEFT) {
         GLfloat x = GLfloat(e.x) / scrwidth * 2 - 1;
         GLfloat y = GLfloat(e.y) / scrheight * 2 - 1;
-        drop_vao.push_back({x, y, 4});
+        drop_vao.push_back({x, y, 10});
     }
 }
