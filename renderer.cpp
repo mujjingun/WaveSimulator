@@ -51,6 +51,9 @@ Renderer::Renderer(const int screen_width, const int screen_height) {
         MAKE_QUAD(1 - th, -1, 1, -1 + th, 4, 4, 4, 3),
         MAKE_QUAD(-1, 1 - th, -1 + th, 1, 4, 3, 4, 4),
         MAKE_QUAD(1, 1 - th, 1 - th, 1, 4, 3, 4, 4),
+
+        // Main Area
+        MAKE_QUAD(-1 + th, -1 + th, 1 - th, 1 - th, 3, 3, 3, 3)
     });
 #undef MAKE_QUAD
 
@@ -98,11 +101,6 @@ Renderer::Renderer(const int screen_width, const int screen_height) {
     glUseProgram(pass_program.id());
     glUniform1f(dt_uni, DELTA);
 
-    pass2_program = load_shader({
-        { GL_VERTEX_SHADER, "pass.vert" },
-        { GL_FRAGMENT_SHADER, "pass2.frag" }
-    });
-
     pass3_program = load_shader({
         { GL_VERTEX_SHADER, "pass.vert" },
         { GL_FRAGMENT_SHADER, "pass3.frag" }
@@ -116,7 +114,7 @@ Renderer::Renderer(const int screen_width, const int screen_height) {
     glUniform1f(dt_uni, DELTA);
 }
 
-constexpr double period = 0.008, pi2 = 6.283185307;
+constexpr double period = 0.01, pi2 = 6.283185307;
 constexpr double omega = pi2 / period;
 
 void Renderer::render() noexcept {
@@ -129,35 +127,34 @@ void Renderer::render() noexcept {
     static const float black[] = { 0.0, 0.0, 0.0, 0.0 };
     glClearBufferfv(GL_COLOR, 0, black);
 
-    auto input_tex = wave_tex[0];
-    auto output_tex = wave_tex[1];
-    std::swap(wave_tex[0], wave_tex[1]);
+    for (int i = 0; i < render_period; ++i) {
+        auto input_tex = wave_tex[0];
+        auto output_tex = wave_tex[1];
+        std::swap(wave_tex[0], wave_tex[1]);
 
-    // Bind input & output image for read-write
-    glBindImageTexture(0, input_tex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
-    glBindImageTexture(1, output_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+        // Bind input & output image for read-write
+        glBindImageTexture(0, input_tex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+        glBindImageTexture(1, output_tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
-    // Pass 1
-    glUseProgram(pass_program.id());
-    quad_vao.draw(GL_TRIANGLE_STRIP);
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        // Pass 1
+        glUseProgram(pass_program.id());
+        bounds_vao.draw(GL_TRIANGLES);
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
-    // Pass 2
-    glUseProgram(pass2_program.id());
-    bounds_vao.draw(GL_TRIANGLES);
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        // Pass 3
+        glUseProgram(pass3_program.id());
+        glUniform1f(time_uni, time);
+        glUniform1f(omega_uni, omega);
+        osc_vao.draw(GL_POINTS);
+        wall_vao.draw(GL_TRIANGLES);
+        drop_vao.draw(GL_POINTS);
+        if (drop_vao.size()) drop_vao.pop_back();
 
-    // Pass 3
-    glUseProgram(pass3_program.id());
-    glUniform1f(time_uni, time);
-    glUniform1f(omega_uni, omega);
-    osc_vao.draw(GL_POINTS);
-    wall_vao.draw(GL_TRIANGLES);
-    drop_vao.draw(GL_POINTS);
-    if (drop_vao.size()) drop_vao.pop_back();
+        time += DELTA;
+    }
 
     // Render to Screen
-    glBindImageTexture(0, output_tex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    //glBindImageTexture(0, output_tex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
 
     glUseProgram(render_program.id());
     glUniform2i(size_uni, scrwidth, scrheight);
@@ -165,8 +162,6 @@ void Renderer::render() noexcept {
     quad_vao.draw(GL_TRIANGLE_STRIP);
     wall_vao.draw(GL_TRIANGLES);
     bounds_vao.draw(GL_TRIANGLES);
-
-    time += DELTA;
 }
 
 void Renderer::mouse_click(SDL_MouseButtonEvent const& e) noexcept {

@@ -23,5 +23,9 @@ void main() {
     float v = x.g + .5 * (x.b + a) * dt - b * x.g;
     float y = x.r + x.g * dt + .5 * x.b * dt * dt;
 
-    imageStore(output_img, coords, vec4(y, v, a, 0));
+    vec4 res = vec4(y, v, a, 0);
+    res *= 1 - pow((type - 3), 4) / 8;
+
+    imageStore(output_img, coords, res);
+    //imageStore(output_img, coords, vec4(0, 0, 0, 0));
 }

@@ -17,7 +17,7 @@ class Renderer {
     GLuint wave_tex[2];
 
     // Shader programs
-    Program pass_program, pass2_program, pass3_program, render_program;
+    Program pass_program, pass3_program, render_program;
 
     // Uniform locations
     GLuint time_uni, omega_uni, size_uni;
@@ -30,7 +30,11 @@ class Renderer {
 
 public:
 
+    // Tick length
     constexpr static double DELTA = 1. / 10000;
+
+    // How many ticks to simulate per render frame
+    constexpr static int render_period = 20;
 
     Renderer(const int screen_width, const int screen_height);
 

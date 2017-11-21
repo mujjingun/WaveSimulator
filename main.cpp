@@ -37,8 +37,10 @@ int main(int argc, char ** argv) {
             int delta = this_ms - last_ms;
             if (delta >= 1000) {
                 double fps = double(framecount) / (delta / 1000.);
-                printf("%.2lf Hz, %.0lfx slowdown\n", fps, 1 / fps / renderer.DELTA);
-                fflush(stdout);
+                double rate = fps * renderer.render_period;
+                double slowdown = 1 / rate / renderer.DELTA;
+                printf("%.2lfFPS, %.2lf Hz, %.0lfx slowdown\n", fps, rate, slowdown);
+                //fflush(stdout);
                 last_ms = this_ms;
                 framecount = 0;
             }
