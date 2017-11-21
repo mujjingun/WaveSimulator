@@ -149,6 +149,7 @@ void Renderer::render() noexcept {
         wall_vao.draw(GL_TRIANGLES);
         drop_vao.draw(GL_POINTS);
         if (drop_vao.size()) drop_vao.pop_back();
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
         time += DELTA;
     }
